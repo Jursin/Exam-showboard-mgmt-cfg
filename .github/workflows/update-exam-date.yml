@@ -1,0 +1,49 @@
+name: Update Exam Date
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # 每周日 00:00 UTC 执行
+
+jobs:
+  update-date:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Update JSON file with current date
+      run: |
+        import json
+        from datetime import datetime
+
+        # 获取当前日期，格式为 YYYY-MM-DD
+        current_date = datetime.utcnow().strftime('%Y-%m-%d')
+
+        # 读取原始 JSON 文件
+        with open('math_exam_config.json', 'r') as f:
+            data = json.load(f)
+
+        # 更新 examInfos 中的 start 和 end 日期
+        for exam in data['examInfos']:
+            exam['start'] = exam['start'].replace(exam['start'][:10], current_date)
+            exam['end'] = exam['end'].replace(exam['end'][:10], current_date)
+
+        # 将更新后的内容保存回文件
+        with open('math_exam_config.json', 'w') as f:
+            json.dump(data, f, indent=4)
+
+    - name: Commit and push changes
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        git add math_exam_config.json
+        git commit -m "Update exam dates to the current week"
+        git push origin main
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
