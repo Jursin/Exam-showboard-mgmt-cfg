@@ -1,13 +1,12 @@
-name: Update Exam Date
+name: Update Exam Dates
 
 on:
   schedule:
-    - cron: '0 0 * * 0'  # 每周日 00:00 UTC 更新 math_exam_config.json
-    - cron: '0 0 * * 3'  # 每周三 00:00 UTC 更新 physics_exam_config.json
-  workflow_dispatch:  # 添加手动触发事件
+    - cron: '0 0 * * 1'  # 每周一 00:00 UTC 执行
+  workflow_dispatch:
 
 jobs:
-  update-math-date:
+  update-dates:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,7 +18,7 @@ jobs:
       with:
         python-version: '3.x'
 
-    - name: Update JSON file with current date (China Timezone) - Math
+    - name: Update JSON files with current week dates
       run: |
         python <<EOF
         import json
@@ -28,77 +27,41 @@ jobs:
         # 设置中国时区（UTC+8）
         china_timezone = timezone(timedelta(hours=8))
 
-        # 获取中国时区的当前日期，格式为 YYYY-MM-DD
-        current_date = datetime.now(china_timezone).strftime('%Y-%m-%d')
+        # 计算当周三和周日的日期
+        now = datetime.now(china_timezone)
+        weekday = now.weekday()  # 0=周一, 1=周二, ..., 6=周日
+        current_wednesday = (now + timedelta(days=(2 - weekday))).strftime('%Y-%m-%d')
+        current_sunday = (now + timedelta(days=(6 - weekday))).strftime('%Y-%m-%d')
 
-        # 读取原始 JSON 文件
+        # 更新 math_exam_config.json 文件（设置为周日日期）
         with open('math_exam_config.json', 'r') as f:
-            data = json.load(f)
+            math_data = json.load(f)
 
-        # 更新 examInfos 中的 start 和 end 日期
-        for exam in data['examInfos']:
-            exam['start'] = exam['start'].replace(exam['start'][:10], current_date)
-            exam['end'] = exam['end'].replace(exam['end'][:10], current_date)
+        for exam in math_data['examInfos']:
+            exam['start'] = exam['start'].replace(exam['start'][:10], current_sunday)
+            exam['end'] = exam['end'].replace(exam['end'][:10], current_sunday)
 
-        # 将更新后的内容保存回文件
         with open('math_exam_config.json', 'w') as f:
-            json.dump(data, f, indent=4, ensure_ascii=False)
-        EOF
+            json.dump(math_data, f, indent=4, ensure_ascii=False)
 
-    - name: Commit and push changes - Math
-      run: |
-        git config --global user.name "GitHub Actions"
-        git config --global user.email "actions@github.com"
-        git add math_exam_config.json
-        git commit -m "Update math exam dates to the current week (China Timezone)"
-        git push origin main
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  update-physics-date:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.x'
-
-    - name: Update JSON file with current date (China Timezone) - Physics
-      run: |
-        python <<EOF
-        import json
-        from datetime import datetime, timedelta, timezone
-
-        # 设置中国时区（UTC+8）
-        china_timezone = timezone(timedelta(hours=8))
-
-        # 获取中国时区的当前日期，格式为 YYYY-MM-DD
-        current_date = datetime.now(china_timezone).strftime('%Y-%m-%d')
-
-        # 读取原始 JSON 文件
+        # 更新 physics_exam_config.json 文件（设置为周三日期）
         with open('physics_exam_config.json', 'r') as f:
-            data = json.load(f)
+            physics_data = json.load(f)
 
-        # 更新 examInfos 中的 start 和 end 日期
-        for exam in data['examInfos']:
-            exam['start'] = exam['start'].replace(exam['start'][:10], current_date)
-            exam['end'] = exam['end'].replace(exam['end'][:10], current_date)
+        for exam in physics_data['examInfos']:
+            exam['start'] = exam['start'].replace(exam['start'][:10], current_wednesday)
+            exam['end'] = exam['end'].replace(exam['end'][:10], current_wednesday)
 
-        # 将更新后的内容保存回文件
         with open('physics_exam_config.json', 'w') as f:
-            json.dump(data, f, indent=4, ensure_ascii=False)
+            json.dump(physics_data, f, indent=4, ensure_ascii=False)
         EOF
 
-    - name: Commit and push changes - Physics
+    - name: Commit and push changes
       run: |
         git config --global user.name "GitHub Actions"
         git config --global user.email "actions@github.com"
-        git add physics_exam_config.json
-        git commit -m "Update physics exam dates to the current week (China Timezone)"
+        git add math_exam_config.json physics_exam_config.json
+        git commit -m "Update math and physics exam dates for the current week"
         git push origin main
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
